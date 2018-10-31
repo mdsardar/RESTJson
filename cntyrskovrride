@@ -1,0 +1,356 @@
+<html>
+<head>
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<title>CDD KYC</title>
+<%@taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core"%>
+<%@ taglib prefix="fmt" uri="http://java.sun.com/jsp/jstl/fmt"%> 
+<%@taglib prefix="sec" uri="http://www.springframework.org/security/tags"%>
+<meta name="GENERATOR" content="IBM WebSphere Studio">
+<meta http-equiv="Content-Style-Type" content="text/css">
+<link href=${pageContext.request.contextPath}/css/countryRiskOverride.css rel="stylesheet" type="text/css">
+<script type="text/javascript" src=${pageContext.request.contextPath}/js/common/commonutil.js></script>
+<script type="text/javascript" src=${pageContext.request.contextPath}/js/countryRiskOverride/countryRiskOverride.js></script>
+<link rel="stylesheet" href="css/pagination.css" type="text/css" />
+</head>
+			<body leftmargin="0" topmargin="0" marginheight="0" marginwidth="0" bgcolor="#FFFFFF">
+
+	 <div id="outer"> 
+	<div id="tabs" class="ui-tabs ui-corner-all ui-widget ui-widget-content">
+<%-- <div id="statusDiv" style="text-align: center; color: #002d72; font-size: 12px; font-weight: bold;"></div> --%>
+<div id="statusDiv" class="successMsg" style="text-align: center;"></div>
+<div id="errorStatus" class="failureMsg" style="text-align: center;"></div>
+<%-- <div id="errorStatus" style="text-align: center; color: #CC3300; font-size: 12px; font-weight: bold;"></div> --%>
+	<table width="96%" border="0" cellspacing="0" cellpadding="4" class="table_title">
+								<tbody><tr>
+									<td height="50%" width="70%">${COUNTRY_RISK_OVERRIDE.COUNTRY_OVERRIDE_RULES.label}</td>
+								</tr>
+							</tbody></table>
+		<div id="greyout" style="display : none"></div>
+       <div class="responseMsg" id="responseMsgDiv"></div>
+       
+       <div id="editAddpopUp" style="display:none;z-index:500;width: 40%; position:absolute; margin-left: 25%; margin-top: 10%; margin-right: 25%;">
+              <%@ include file="countryRiskOverridePopup.jsp"%>
+       </div>
+        <div id="historyPopUp" class="tableBorder" style="display:none;z-index:500;width: 60%; position:absolute;margin-left: 20%;margin-top:2%;">
+              <%@ include file="countryRiskOverrideHistory.jsp"%>
+       </div>
+       
+     <input type="hidden" id="pageNo" name="pageNo">
+	<input type="hidden" id="totalCount" name="totalCount" value="">
+       
+        <div id="commentsPopUp" style="display:none;z-index:500;width: 400px; position:absolute; margin-left: 30%; margin-top: 5%;">
+              <%@ include file="countryRiskOverrideCheckerStatusPopup.jsp"%>
+       </div>
+       
+				<div class="accountOpenMode" style="margin-left:10px">&nbsp;&nbsp;&nbsp;</div>
+				&nbsp;<span class="data" >${COUNTRY_RISK_OVERRIDE.MODE_OF_ACCOUNT_OPENING.label}
+				<hr width="98%"></span>
+					<div id="errorDiv" style="text-align: left; color: #CC3300; font-size: 12px;"></div>
+				<div id="accountOpenDetails">
+				<div align="right" style="margin-right: 2%;"><a href="#" class="bbutton btn-historyAccountOpen">${COMMON.HISTORY.label}</a>&nbsp;&nbsp;<sec:authorize access="hasAuthority('COMPLMAKER')"><a href="#" class="bbutton btn-editAccountOpen">${COMMON.EDIT.label}</a>&nbsp;&nbsp;<a href="#" id="add-row" class="bbutton btn-addAccountOpen"> ${COMMON.ADD.label}</a>&nbsp;&nbsp;<a href="#"	class="bbutton btn-deleteAccountOpen">${COMMON.DELETE.label}</a></sec:authorize></div>
+   <br>
+					<table id = "accOpenTable" width="98%" border="0" cellspacing="1" cellpadding="4"
+						class="table_data">
+						<tbody>
+						<tbody><tr> <th colspan="2"></th><th colspan="2" style="TEXT-ALIGN: center;">${COUNTRY_RISK_OVERRIDE.MODIFIED_RISK.label}</th> <th colspan="4"></th> </tr>
+							<tr align="center">
+								<th width="10%" class="table_header">${COUNTRY_RISK_OVERRIDE.MODE_OF_ACCOUNT_OPENING.label}</th>
+								<th width="10%" class="table_header">${COUNTRY_RISK_OVERRIDE.RISK_SCORE.label}</th>
+								<th width="10%" class="table_header">${COUNTRY_RISK_OVERRIDE.RISK_SCORE.label}</th>
+								<th width="10%" class="table_header">${COUNTRY_RISK_OVERRIDE.WORKFLOW_STATUS.label}</th>
+								<th width="10%" class="table_header">${COUNTRY_RISK_OVERRIDE.CREATED_BY.label}</th>
+								<th width="10%" class="table_header">${COUNTRY_RISK_OVERRIDE.CREATED_DATE.label}</th>
+								<th width="10%" class="table_header">${uiLabels.MODIFIED_BY.label}</th>
+								<th width="10%" class="table_header">${uiLabels.MODIFIED_DT.label}</th>
+								<th style="display:none;">PBOC_RISK_SCORE_MODE_OF_ACCT_CARD</th>
+							</tr>
+						</tbody>
+					 </table>
+					<table id= "accOpenTableData" width="98%" border="0" cellspacing="0" cellpadding="4"
+						class="table_data">
+						<tbody>
+						
+						<c:forEach var="listValue" items="${modeOfAccountOpenVOList}">
+								<tr>
+									<td width="10%" align="left" class="accOpenModeTd"  tabindex="1"><sec:authorize access="hasAuthority('COMPLMAKER')"><input type='checkbox'  name='accountOpenModeCheckBox' class="accountOpenModeCheckBox"></sec:authorize>${listValue.modeOfAccountOpening}</td>
+									<td width="10%" align="center"  class="accRiskScore">${listValue.riskScore}</td>
+									<td width="10%" align="center" id="accModifiedRs">${listValue.modifiedRiskScore}</td>
+									<td width="10%" align="center" id="accModifiedWs">${listValue.modifiedWorkflowStatus}</td>
+									<td width="10%" align="center" id="rs" class="acccreatedBy">${listValue.createdBy}</td>
+									<td width="10%" align="center" id="rs" class="accCreateDate">${listValue.createDate}</td>
+									<td width="10%" align="center" id="rs" class="acclastUpdatedBy">${listValue.lastUpdatedBy}</td>
+									<td width="10%" align="center" id="rs" class="accLastUpdatedDate">${listValue.lastUpdatedDate}</td>
+									<td style="display:none;" class="accpickListType">${listValue.pickListType}</td>
+									<td  style="display:none;" class="refAccountOpen">${listValue.pickListId}</td>
+									<td style="display:none;">${listValue.authStatus}</td>
+									<td style="display:none;">${listValue.createId}</td>
+									<td style="display:none;">${listValue.lastUpdatedId}</td>
+									<td style="display:none;">${listValue.createDate}</td>
+									
+									<td style="display:none;">${COUNTRY_RISK_OVERRIDE.MODE_OF_ACCOUNT_OPENING.label}</td>
+									<td style="display:none;">${COUNTRY_RISK_OVERRIDE.RISK_SCORE.label}</td>
+									<td style="display:none;">${COUNTRY_RISK_OVERRIDE.WORKFLOW_STATUS.label}</td>
+									<td style="display:none;">${COUNTRY_RISK_OVERRIDE.CREATED_BY.label}</td>
+									<td style="display:none;">${COUNTRY_RISK_OVERRIDE.CREATED_DATE.label}</td>
+									<td style="display:none;">${uiLabels.MODIFIED_BY.label}</td>
+									<td style="display:none;">${uiLabels.MODIFIED_DT.label}</td>
+								</tr>
+							</c:forEach>
+							
+						</tbody>
+					</table><br>
+				</div>
+			
+			<div>
+
+				<div class="documentType" style="margin-left:10px"></div>
+				&nbsp; <span class="data">${COUNTRY_RISK_OVERRIDE.TYPE_OF_DOCUMENTS_PROVIDED.label}
+				<hr width="98%"></span>
+				<div id="documentTypeDetails">
+				<div align="right" style="margin-right: 2%;"><a href="#" class="bbutton btn-historyDocType">History</a>&nbsp;&nbsp;<sec:authorize access="hasAuthority('COMPLMAKER')"><a href="#" class="bbutton btn-editDocType">${COMMON.EDIT.label}</a>&nbsp;&nbsp;<a href="#" id="add-row" class="bbutton btn-addDocType"> ${COMMON.ADD.label}</a>&nbsp;&nbsp;<a href="#" id="delete-row" class="bbutton btn-deleteDocType">${COMMON.DELETE.label}</a></sec:authorize></div>
+   <br>
+					<table id="docTypeTable" width="98%" border="0" cellspacing="1" cellpadding="4"
+						class="table_data">
+						<tbody><tr> <th colspan="2"></th><th colspan="2" style="TEXT-ALIGN: center;">${COUNTRY_RISK_OVERRIDE.MODIFIED_RISK.label}</th> <th colspan="4"></th> </tr>
+							<tr align="center">
+								<th width="10%" class="table_header">${COUNTRY_RISK_OVERRIDE.ID_TYPE.label}</th>
+								<th width="10%" class="table_header">${COUNTRY_RISK_OVERRIDE.RISK_SCORE.label}</th>
+								<th width="10%" class="table_header">${COUNTRY_RISK_OVERRIDE.RISK_SCORE.label}</th>
+								<th width="10%" class="table_header">${COUNTRY_RISK_OVERRIDE.WORKFLOW_STATUS.label}</th>
+								<th width="10%" class="table_header">${COUNTRY_RISK_OVERRIDE.CREATED_BY.label}</th>
+								<th width="10%" class="table_header">${COUNTRY_RISK_OVERRIDE.CREATED_DATE.label}</th>
+								<th width="10%" class="table_header">${uiLabels.MODIFIED_BY.label}</th>
+								<th width="10%" class="table_header">${uiLabels.MODIFIED_DT.label}</th>
+							</tr>
+						</tbody>
+					</table>
+					<table id="docTypeTableData" width="98%" border="0" cellspacing="0" cellpadding="4"
+						class="table_data">
+						<tbody>
+						<c:forEach var="listValue" items="${docTypeVOList}">
+								<tr>
+									<td width="10%" align="left"><sec:authorize access="hasAuthority('COMPLMAKER')"><input type='checkbox' name='docTypeCheckBox' class="docTypeCheckBox"></sec:authorize>${listValue.idType}</td>
+									<td width="10%" align="center">${listValue.riskScore}</td>
+									<td width="10%" align="center">${listValue.modifiedRiskScore}</td>
+									<td width="10%" align="center">${listValue.modifiedWorkflowStatus}</td>
+									<td width="10%" align="center" id="rs">${listValue.createdBy}</td>
+									<td width="10%" align="center" id="rs" class="accCreateDate">${listValue.createDate}</td>
+									<td width="10%" align="center" id="rs">${listValue.lastUpdatedBy}</td>
+									<td width="10%" align="center" id="rs">${listValue.lastUpdatedDate}</td>
+									<td style="display:none;">${listValue.pickListType}</td>
+									<td style="display:none;" class="refDocType">${listValue.pickListId}</td>
+									<td style="display:none;">${listValue.authStatus}</td>
+									<td style="display:none;">${listValue.createId}</td>
+									<td style="display:none;">${listValue.lastUpdatedId}</td>
+									<td style="display:none;">${listValue.createDate}</td>
+									<td style="display:none;">${COUNTRY_RISK_OVERRIDE.ID_TYPE.label}</td>
+
+								</tr>
+							</c:forEach>
+						</tbody>
+					</table><br>
+				</div>
+				<div>
+				
+				<table width="98%" border="0" cellspacing="4" cellpadding="0" class="">
+			<tbody><tr class="cellboldodd">
+				<td width="3%" style="color: #666666">${COUNTRY_RISK_OVERRIDE.AGE_LINE_OF_BUSINESS.label}</td>
+				<td width="23%"><select id="businessLines" style="height:18px" class="tfselect">
+					<option width="35%" value="select">${COUNTRY_RISK_OVERRIDE.SELECT.label}</option>
+					<option width="35%" value="ageRetail">${COUNTRY_RISK_OVERRIDE.RETAIL.label}</option>
+					<option width="35%" value="ageCard">${COUNTRY_RISK_OVERRIDE.CARD.label}</option>
+					<option width="35%" value="ageUPL">${COUNTRY_RISK_OVERRIDE.UPL.label}</option>
+					</select>
+			    </td>
+			</tr>
+		</tbody></table>
+				</div>
+				<div class="ageRetailTable">
+				<div class="ageRetail"></div>
+				&nbsp;&nbsp;&nbsp;&nbsp; <span class="data" >${COUNTRY_RISK_OVERRIDE.AGE_RETAIL.label}</span>
+				<div id="ageRetailDetails">
+				<div align="right" style="margin-right: 2%;"><a href="#" class="bbutton btn-historyAgeRetail">${COMMON.HISTORY.label}</a>&nbsp;&nbsp;<sec:authorize access="hasAuthority('COMPLMAKER')"><a href="#" class="bbutton btn-editAgeRetail">${COMMON.EDIT.label}</a>&nbsp;&nbsp;<a href="#" id="add-row" class="bbutton btn-addAgeRetail"> ${COMMON.ADD.label}</a>&nbsp;&nbsp;<a href="#"	id="delete-row" class ="bbutton btn-deleteAgeRetail">${COMMON.DELETE.label}</a></sec:authorize></div>
+   <br>
+					<table id="ageRetailTable" width="98%" border="0" cellspacing="1" cellpadding="4"
+						class="table_data">
+						<tbody><tr> <th colspan="5"></th><th colspan="2" style="TEXT-ALIGN: center;">${COUNTRY_RISK_OVERRIDE.MODIFIED_RISK.label}</th> <th colspan="4"></th> </tr>
+							<tr align="center">
+								<th width="11%" class="table_header">${COUNTRY_RISK_OVERRIDE.HIGH_RELATIONSHIP_BALANCE.label}</th>
+								<th width="5%" class="table_header">${COUNTRY_RISK_OVERRIDE.MINIMUM_AGE.label}</th>
+								<th width="4%" class="table_header">${COUNTRY_RISK_OVERRIDE.MAXIMUM_AGE.label}</th>
+								<th width="10%" class="table_header">${COUNTRY_RISK_OVERRIDE.CUSTOMER_TYPE.label}</th>
+								<th width="10%" class="table_header">${COUNTRY_RISK_OVERRIDE.RISK_SCORE.label}</th>
+								<th width="10%" class="table_header">${COUNTRY_RISK_OVERRIDE.RISK_SCORE.label}</th>
+								<th width="10%" class="table_header">${COUNTRY_RISK_OVERRIDE.WORKFLOW_STATUS.label}</th>
+								<th width="10%" class="table_header">${COUNTRY_RISK_OVERRIDE.CREATED_BY.label}</th>
+								<th width="10%" class="table_header">${COUNTRY_RISK_OVERRIDE.CREATED_DATE.label}</th>
+								<th width="10%" class="table_header">${uiLabels.MODIFIED_BY.label}</th>
+								<th width="20%" class="table_header">${uiLabels.MODIFIED_DT.label}</th>
+							</tr>
+						</tbody>
+					</table>
+					<table id="ageRetailTableData" width="98%" border="0" cellspacing="0" cellpadding="4"
+						class="table_data">
+						<tbody>
+						
+						<c:forEach var="listValue" items="${retailVOList}">
+								<tr>
+									<td width="11%" align="left"><sec:authorize access="hasAuthority('COMPLMAKER')"><input type='checkbox' name='ageRetailCheckBox' class="ageRetailCheckBox"></sec:authorize>${listValue.highRelationShipBalance}</td>
+									<td width="5%" align="center">${listValue.minAge}</td>
+									<td width="4%" align="center">${listValue.maxAge}</td>
+									<td width="10%" align="center">${listValue.custType}</td>
+									<td width="10%" align="center">${listValue.riskScore}</td>
+									<td width="10%" align="center">${listValue.modifiedRiskScore}</td>
+									<td width="10%" align="center">${listValue.modifiedWorkflowStatus}</td>
+									<td width="10%" align="center" id="rs">${listValue.createdBy}</td>
+									<td style="display:none;">${listValue.pickListType}</td>
+									<td width="10%" align="center" id="rs">${listValue.createDate}</td>
+									<td width="10%" align="center" id="rs">${listValue.lastUpdatedBy}</td>
+									<td width="20%" align="center" id="rs">${listValue.lastUpdatedDate}</td>
+									<td style="display:none;">${listValue.parentPickListType}</td>
+									<td style="display:none;">${listValue.parentPickListId}</td>
+									<td style="display:none;" class="refAgeRetail">${listValue.pickListId}</td>
+									<td style="display:none;">${listValue.minAgePickListId}</td>
+									<td style="display:none;">${listValue.maxAgePickListId}</td>
+									<td style="display:none;">${listValue.custTypePickListId}</td>
+									<td style="display:none;">${listValue.parentPickListCode}</td>
+									<td style="display:none;">${listValue.authStatus}</td>
+									<td style="display:none;">${listValue.createId}</td>
+									<td style="display:none;">${listValue.lastUpdatedId}</td>
+									<td style="display:none;">${listValue.createDate}</td>
+									
+									<td style="display:none;">${COUNTRY_RISK_OVERRIDE.HIGH_RELATIONSHIP_BALANCE.label}</td>
+									<td style="display:none;">${COUNTRY_RISK_OVERRIDE.MINIMUM_AGE.label}</td>
+									<td style="display:none;">${COUNTRY_RISK_OVERRIDE.MAXIMUM_AGE.label}</td>
+									<td style="display:none;">${COUNTRY_RISK_OVERRIDE.CUSTOMER_TYPE.label}</td>
+								</tr>
+							</c:forEach>
+						</tbody>
+					</table><br>
+				</div>
+				</div>
+				<div class="ageCardTable">
+				 <div class="ageCard"></div>
+				&nbsp;&nbsp;&nbsp;&nbsp; <span class="data" >${COUNTRY_RISK_OVERRIDE.AGE_CARD.label}</span>
+				<div id="ageCardDetails">
+				<div align="right" style="margin-right: 2%;"><a href="#" class="bbutton btn-historyAgeCard">${COMMON.HISTORY.label}</a>&nbsp;&nbsp;<sec:authorize access="hasAuthority('COMPLMAKER')"><a href="#" class="bbutton btn-editAgeCard">${COMMON.EDIT.label}</a>&nbsp;&nbsp;<a href="#" id="add-row" class="bbutton btn-addAgeCard"> ${COMMON.ADD.label}</a>&nbsp;&nbsp;<a href="#"	id="delete-row" class="bbutton btn-deleteAgeCard">${COMMON.DELETE.label}</a></sec:authorize></div>
+   <br>
+					<table id="ageCardTable" width="98%" border="0" cellspacing="1" cellpadding="4"
+						class="table_data">
+						<tbody><tr> <th colspan="5"></th><th colspan="2" style="TEXT-ALIGN: center;">${COUNTRY_RISK_OVERRIDE.MODIFIED_RISK.label}</th> <th colspan="4"></th> </tr>
+							<tr align="center">
+								<th width="11%" class="table_header">${COUNTRY_RISK_OVERRIDE.CREDIT_LIMIT.label}</th>
+								<th width="5%" class="table_header">${COUNTRY_RISK_OVERRIDE.MINIMUM_AGE.label}</th>
+								<th width="4%" class="table_header">${COUNTRY_RISK_OVERRIDE.MAXIMUM_AGE.label}</th>
+								<th width="10%" class="table_header">${COUNTRY_RISK_OVERRIDE.CUSTOMER_TYPE.label}</th>
+								<th width="10%" class="table_header">${COUNTRY_RISK_OVERRIDE.RISK_SCORE.label}</th>
+								<th width="10%" class="table_header">${COUNTRY_RISK_OVERRIDE.RISK_SCORE.label}</th>
+								<th width="10%" class="table_header">${COUNTRY_RISK_OVERRIDE.WORKFLOW_STATUS.label}</th>
+								<th width="10%" class="table_header">${COUNTRY_RISK_OVERRIDE.CREATED_BY.label}</th>
+								<th width="10%" class="table_header">${COUNTRY_RISK_OVERRIDE.CREATED_DATE.label}</th>
+								<th width="10%" class="table_header">${uiLabels.MODIFIED_BY.label}</th>
+								<th width="20%" class="table_header">${uiLabels.MODIFIED_DT.label}</th>
+							</tr>
+						</tbody>
+					</table>
+					<table id="ageCardTableData" width="98%" border="0" cellspacing="0" cellpadding="4"
+						class="table_data">
+						<tbody>
+							<c:forEach var="listValue" items="${cardVOList}">
+								<tr>
+									<td width="11%" align="left"><sec:authorize access="hasAuthority('COMPLMAKER')"><input type='checkbox' name='ageCardCheckBox' class="ageCardCheckBox"></sec:authorize>${listValue.creditLimit}</td>
+									<td width="5%" align="center">${listValue.minAge}</td>
+									<td width="4%" align="center">${listValue.maxAge}</td>
+									<td width="10%" align="center">${listValue.custType}</td>
+									<td width="10%" align="center">${listValue.riskScore}</td>
+									<td width="10%" align="center">${listValue.modifiedRiskScore}</td>
+									<td width="10%" align="center">${listValue.modifiedWorkflowStatus}</td>
+									<td width="10%" align="center" id="rs">${listValue.createdBy}</td>
+									<td style="display:none;">${listValue.pickListType}</td>
+									<td width="10%" align="center" id="rs">${listValue.createDate}</td>
+									<td width="10%" align="center" id="rs">${listValue.lastUpdatedBy}</td>
+									<td width="20%" align="center" id="rs">${listValue.lastUpdatedDate}</td>
+									<td style="display:none;">${listValue.parentPickListType}</td>
+									<td style="display:none;">${listValue.parentPickListId}</td>
+									<td style="display:none;" class="refAgeCard">${listValue.pickListId}</td>
+									<td style="display:none;">${listValue.minAgePickListId}</td>
+									<td style="display:none;">${listValue.maxAgePickListId}</td>
+									<td style="display:none;">${listValue.custTypePickListId}</td>
+									<td style="display:none;">${listValue.parentPickListCode}</td>
+									<td style="display:none;">${listValue.authStatus}</td>
+									<td style="display:none;">${listValue.createId}</td>
+									<td style="display:none;">${listValue.lastUpdatedId}</td>
+									<td style="display:none;">${listValue.createDate}</td>
+									
+									<td style="display:none;">${COUNTRY_RISK_OVERRIDE.CREDIT_LIMIT.label}</td>
+								</tr>
+							</c:forEach>
+						</tbody>
+					</table><br>
+				</div>
+		</div>
+		<div class="ageUPLTable">
+				<div class="ageUPL"></div>
+				&nbsp;&nbsp;&nbsp;&nbsp; <span class="data" >${COUNTRY_RISK_OVERRIDE.AGE_UPL.label}</span>
+				<div id="ageUPLDetails">
+				<div align="right" style="margin-right: 2%;"><a href="#" class="bbutton btn-historyAgeUPL">${COMMON.HISTORY.label}</a>&nbsp;&nbsp;<sec:authorize access="hasAuthority('COMPLMAKER')"><a href="#" class="bbutton btn-editAgeUPL">${COMMON.EDIT.label}</a>&nbsp;&nbsp;<a href="#" id="add-row" class="bbutton btn-addAgeUPL"> ${COMMON.ADD.label}</a>&nbsp;&nbsp;<a href="#"	id="delete-row" class="bbutton btn-deleteAgeUPL">${COMMON.DELETE.label}</a></sec:authorize></div>
+   <br>
+					<table id="ageUPLTable" width="98%" border="0" cellspacing="1" cellpadding="4"
+						class="table_data">
+						<tbody><tr> <th colspan="5"></th><th colspan="2" style="TEXT-ALIGN: center;">${COUNTRY_RISK_OVERRIDE.MODIFIED_RISK.label}</th> <th colspan="4"></th> </tr>
+							<tr align="center">
+								<th width="11%" class="table_header">${COUNTRY_RISK_OVERRIDE.Loan_Amount.label}</th>
+								<th width="5%" class="table_header">${COUNTRY_RISK_OVERRIDE.MINIMUM_AGE.label}</th>
+								<th width="4%" class="table_header">${COUNTRY_RISK_OVERRIDE.MAXIMUM_AGE.label}</th>
+								<th width="10%" class="table_header">${COUNTRY_RISK_OVERRIDE.CUSTOMER_TYPE.label}</th>
+								<th width="10%" class="table_header">${COUNTRY_RISK_OVERRIDE.RISK_SCORE.label}</th>
+								<th width="10%" class="table_header">${COUNTRY_RISK_OVERRIDE.RISK_SCORE.label}</th>
+								<th width="10%" class="table_header">${COUNTRY_RISK_OVERRIDE.WORKFLOW_STATUS.label}</th>
+								<th width="10%" class="table_header">${COUNTRY_RISK_OVERRIDE.CREATED_BY.label}</th>
+								<th width="10%" class="table_header">${COUNTRY_RISK_OVERRIDE.CREATED_DATE.label}</th>
+								<th width="10%" class="table_header">${uiLabels.MODIFIED_BY.label}</th>
+								<th width="20%" class="table_header">${uiLabels.MODIFIED_DT.label}</th>
+							</tr>
+						</tbody>
+					</table>
+					<table id="ageUPLTableData" width="98%" border="0" cellspacing="0" cellpadding="4"
+						class="table_data">
+						<tbody>
+							<c:forEach var="listValue" items="${uplVOList}">
+								<tr>
+									<td width="11%" align="left"><sec:authorize access="hasAuthority('COMPLMAKER')"><input type='checkbox' name='ageUPLCheckBox' class="ageUPLCheckBox"></sec:authorize>${listValue.loanAmount}</td>
+									<td width="5%" align="center">${listValue.minAge}</td>
+									<td width="4%" align="center">${listValue.maxAge}</td>
+									<td width="10%" align="center">${listValue.custType}</td>
+									<td width="10%" align="center">${listValue.riskScore}</td>
+									<td width="10%" align="center">${listValue.modifiedRiskScore}</td>
+									<td width="10%" align="center">${listValue.modifiedWorkflowStatus}</td>
+									<td width="10%" align="center" id="rs">${listValue.createdBy}</td>
+									<td style="display:none;">${listValue.pickListType}</td>
+									<td width="10%" align="center" id="rs">${listValue.createDate}</td>
+									<td width="10%" align="center" id="rs">${listValue.lastUpdatedBy}</td>
+									<td width="20%" align="center" id="rs">${listValue.lastUpdatedDate}</td>
+									<td style="display:none;">${listValue.parentPickListType}</td>
+									<td style="display:none;">${listValue.parentPickListId}</td>
+									<td style="display:none;" class="refAgeUPL">${listValue.pickListId}</td>
+									<td style="display:none;">${listValue.minAgePickListId}</td>
+									<td style="display:none;">${listValue.maxAgePickListId}</td>
+									<td style="display:none;">${listValue.custTypePickListId}</td>
+									<td style="display:none;">${listValue.parentPickListCode}</td>
+									<td style="display:none;">${listValue.authStatus}</td>
+									<td style="display:none;">${listValue.createId}</td>
+									<td style="display:none;">${listValue.lastUpdatedId}</td>
+									<td style="display:none;">${listValue.createDate}</td>
+									
+									<td style="display:none;">Loan Amount</td>
+								</tr>
+							</c:forEach>
+						</tbody>
+					</table><br>
+				</div>
+			</div>
+			</div>
+			</div>
+</div>
+</body>
+</html>
