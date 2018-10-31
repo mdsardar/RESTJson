@@ -1,0 +1,674 @@
+import java.sql.Timestamp;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import org.hibernate.Query;
+import org.slf4j.Logger;
+import org.springframework.stereotype.Repository;
+
+import com.citigroup.amlcdd.common.constants.AMLCDDConstants;
+import com.citigroup.amlcdd.entity.KycCommentEntity;
+import com.citigroup.amlcdd.entity.KycCommentsEntity;
+import com.citigroup.amlcdd.entity.PickListLkupEntity;
+import com.citigroup.amlcdd.entity.PickListLkupStagingEntity;
+import com.citigroup.amlcdd.entity.UserEntity;
+import com.citigroup.amlcdd.framework.dao.CDDBaseDaoImpl;
+import com.citigroup.amlcdd.framework.util.CommonUtility;
+import com.citigroup.amlcdd.risk.country.vo.CountryRiskOverrideVO;
+
+/**
+ *  Class to <Details>
+ * @param <E>
+ */
+@Repository
+public class CountryRiskOverrideDaoImpl extends CDDBaseDaoImpl<CountryRiskOverrideDaoImpl> implements ICountryRiskOverrideDao{
+
+	private static final Logger logger = org.slf4j.LoggerFactory.getLogger(CountryRiskOverrideDaoImpl.class);
+	
+	private static final String GET_PARAM_ASSIGNE_NAME="SELECT TASK.WORK_ITEM_ASSIGNEE FROM KYC_TASK TASK WHERE   upper(TASK.WORK_ITEM_STATUS)=upper('RESERVED')  AND TASK.COMPONENT_ID =:paramId";
+
+	/* (non-Javadoc)
+	 * @see com.citigroup.amlcdd.risk.country.dao.ICountryRiskOverrideDao#updateCountryRiskOverride(java.util.List)
+	 */
+	@Override
+	public List<PickListLkupStagingEntity> updateCountryRiskOverride(
+			List<PickListLkupStagingEntity> configDetailEntities){
+		logger.info("Inside the Class: CountryRiskOverrideDaoImpl ---> method: updateCountryRiskOverride");
+		Long addApprovedPickListId = null;
+		Long id =null;
+		List<PickListLkupStagingEntity> lstPickListLkupStagingEntity = new ArrayList<>();
+		 List<String> statusList = Arrays.asList(AMLCDDConstants.ADD_PENDING,AMLCDDConstants.UPDATE_PENDING,AMLCDDConstants.DELETE_PENDING);
+		 List<String> parentAgePickListTypeList = Arrays.asList(AMLCDDConstants.PBOC_RISK_SCORE_AGE_RETAIL, AMLCDDConstants.PBOC_RISK_SCORE_AGE_CARD, AMLCDDConstants.PBOC_RISK_SCORE_AGE_UPL);
+		 List<String> childAgePickListTypeList = Arrays.asList(AMLCDDConstants.PBOC_RISK_SCORE_AGE_RETAIL_PARAMS, AMLCDDConstants.PBOC_RISK_SCORE_AGE_CARD_PARAMS, AMLCDDConstants.PBOC_RISK_SCORE_AGE_UPL_PARAMS);
+		for(PickListLkupStagingEntity pickListLkupStagingEntity : configDetailEntities)
+		{
+			if(statusList.contains(pickListLkupStagingEntity.getAuthStatus())){
+				if(parentAgePickListTypeList.contains(pickListLkupStagingEntity.getPickListType())){
+				String pickListId = getSequenceNo(AMLCDDConstants.PICKLIST);
+				if(pickListId != "")
+					id = Long.valueOf(pickListId);
+				pickListLkupStagingEntity.setPickListId(id);
+			}
+			else{
+				pickListLkupStagingEntity.setPickListId(Long.valueOf(getSequenceNo(AMLCDDConstants.PICKLIST)));
+				if(childAgePickListTypeList.contains(pickListLkupStagingEntity.getPickListType())){
+				 pickListLkupStagingEntity.setParentPickListId(id);
+				}
+			}
+			}else{
+				pickListLkupStagingEntity.setPickListId(Long.valueOf(getSequenceNo(AMLCDDConstants.PICKLIST)));
+				addApprovedPickListId = pickListLkupStagingEntity.getPickListId();
+			}
+			getSession().save(pickListLkupStagingEntity);
+			lstPickListLkupStagingEntity.add(pickListLkupStagingEntity);
+		}
+		logger.info("Exits the Class: CountryRiskOverrideDaoImpl ---> method: updateCountryRiskOverride");
+		return lstPickListLkupStagingEntity;
+	}
+	
+	/* (non-Javadoc)
+	 * @see com.citigroup.amlcdd.risk.country.dao.ICountryRiskOverrideDao#getHistoryDetails(com.citigroup.amlcdd.risk.country.vo.CountryRiskOverrideVO)
+	 */
+	
+	public List<PickListLkupStagingEntity> getHistoryDetails(PickListLkupStagingEntity pickListLkupStagingEntity, String fDate, String tDate, String parentPickListType) throws ParseException
+	{
+		logger.info("Inside the Class: CountryRiskOverrideDaoImpl ---> method: getHistoryDetails");
+		List<String> makerStatusList = Arrays.asList(AMLCDDConstants.ADD_PENDING,AMLCDDConstants.UPDATE_PENDING,AMLCDDConstants.DELETE_PENDING);
+		SimpleDateFormat formatter = new SimpleDateFormat(AMLCDDConstants.DATE_FORMAT_MMDDYYYY);
+		Date fromDate = null;
+		Date toDate = null;
+		String[] authStatusList  = null;
+		String authStatus = pickListLkupStagingEntity.getAuthStatus();
+		if(makerStatusList.contains(authStatus))
+			 authStatusList = new String[]{authStatus};
+		else if((AMLCDDConstants.ADD_APPROVED).equals(authStatus) || (AMLCDDConstants.ADD_REJECTED).equals(authStatus))
+			 authStatusList = new String[]{authStatus,AMLCDDConstants.ADD_PENDING};
+		else if((AMLCDDConstants.UPDATE_APPROVED).equals(authStatus) || (AMLCDDConstants.UPDATE_REJECTED).equals(authStatus))
+			 authStatusList = new String[]{authStatus,AMLCDDConstants.UPDATE_PENDING};
+		else if((AMLCDDConstants.DELETE_APPROVED).equals(authStatus) || (AMLCDDConstants.DELETE_REJECTED).equals(authStatus))
+			 authStatusList = new String[]{authStatus,AMLCDDConstants.DELETE_PENDING};
+		String pickListType = pickListLkupStagingEntity.getPickListType();
+		String[] pickListTypes= {pickListType, parentPickListType};
+		List<PickListLkupStagingEntity> lstPickListLkupStagingEntity = null;
+		Query query =null;
+		if(CommonUtility.isNotNull(pickListType)){
+			if(!(CommonUtility.isEmptyString(fDate) || CommonUtility.isEmptyString(tDate)))
+		{
+				fromDate = formatter.parse(fDate);
+				toDate = formatter.parse(tDate);
+			if(toDate == null)
+			toDate = new Date(new Date().getTime() + (1000 * 60 * 60 * 24));
+			else
+			toDate = new Date(toDate.getTime() + (1000 * 60 * 60 * 24));
+			if(authStatus.equals("ALL")){
+				if(CommonUtility.isNotNull(parentPickListType)){
+					query  = getSession().createQuery("from PickListLkupStagingEntity where pickListType IN(:pickListTypes) AND modifiedDt BETWEEN :fromDate AND :toDate order by modifiedDt desc");
+					query.setParameterList("pickListTypes", Arrays.asList(pickListTypes));
+					query.setParameter("fromDate", fromDate);
+					query.setParameter("toDate", toDate);
+				}
+				else{
+			query  = getSession().createQuery("from PickListLkupStagingEntity where pickListType =:pickListType AND modifiedDt BETWEEN :fromDate AND :toDate order by modifiedDt desc");
+			query.setParameter("pickListType", pickListType);
+			query.setParameter("fromDate", fromDate);
+			query.setParameter("toDate", toDate);
+				}
+			}
+			else {
+				if(CommonUtility.isNotNull(parentPickListType)){
+					query  = getSession().createQuery("from PickListLkupStagingEntity where pickListType IN(:pickListTypes) AND authStatus IN(:authStatus) AND modifiedDt BETWEEN :fromDate AND :toDate order by modifiedDt desc");	
+					query.setParameterList("pickListTypes", Arrays.asList(pickListTypes));
+					query.setParameter("fromDate", fromDate);
+					query.setParameter("toDate", toDate);
+					query.setParameterList("authStatus", Arrays.asList(authStatusList));
+				}
+				else{
+			query  = getSession().createQuery("from PickListLkupStagingEntity where pickListType =:pickListType AND authStatus =:authStatus AND modifiedDt BETWEEN :fromDate AND :toDate order by modifiedDt desc");	
+			query.setParameter("pickListType", pickListType);
+			query.setParameter("fromDate", fromDate);
+			query.setParameter("toDate", toDate);
+			query.setParameter("authStatus", authStatus);
+				}
+			}
+		}
+		else{
+			if(authStatus.equals("ALL")){
+				if(CommonUtility.isNotNull(parentPickListType)){
+					query  = getSession().createQuery("from PickListLkupStagingEntity where pickListType IN(:pickListTypes) order by modifiedDt desc");
+					query.setParameterList("pickListTypes", Arrays.asList(pickListTypes));
+				}
+				else{
+				query  = getSession().createQuery("from PickListLkupStagingEntity where pickListType =:pickListType order by modifiedDt desc");
+				query.setParameter("pickListType", pickListType);
+				}
+				}
+				else{
+					if(CommonUtility.isNotNull(parentPickListType)){
+						query  = getSession().createQuery("from PickListLkupStagingEntity where  pickListType IN(:pickListTypes) AND authStatus IN(:authStatus) order by modifiedDt desc");	
+						query.setParameterList("pickListTypes", Arrays.asList(pickListTypes));
+						query.setParameterList("authStatus", Arrays.asList(authStatusList));
+					}
+					else{
+				query  = getSession().createQuery("from PickListLkupStagingEntity where pickListType =:pickListType AND authStatus =:authStatus order by modifiedDt desc");	
+				query.setParameter("pickListType", pickListType.trim());
+				query.setParameter("authStatus", authStatus.trim());
+					}
+				}
+		}
+		}
+		lstPickListLkupStagingEntity = query.list();
+		logger.info("Exit the Class: CountryRiskOverrideDaoImpl ---> method: getHistoryDetails");
+		return lstPickListLkupStagingEntity;
+	}
+
+	
+	@Override
+	public void updateComments(CountryRiskOverrideVO countryRiskOverrideVO) {
+		logger.info("Inside the class CountryRiskOverrideDaoImpl---> method : updateComments");
+		List<String> lstPickList = Arrays.asList(AMLCDDConstants.PBOC_RISK_SCORE_AGE_CARD, AMLCDDConstants.PBOC_RISK_SCORE_AGE_RETAIL, AMLCDDConstants.PBOC_RISK_SCORE_AGE_UPL);
+		 KycCommentEntity kycComment  = new KycCommentEntity();
+		 kycComment.setCmntId(getSequenceNo("CMNT"));
+		 if(lstPickList.contains(countryRiskOverrideVO.getParentPickListType()))
+		 kycComment.setComponentId(String.valueOf(countryRiskOverrideVO.getParentPickListId()));
+		 else
+		 kycComment.setComponentId(String.valueOf(countryRiskOverrideVO.getPickListId()));
+		 kycComment.setSectionNm(AMLCDDConstants.COUNTRY_RISK_OVERRIDE);
+		 kycComment.setCntryCde(countryRiskOverrideVO.getCountry());
+		 kycComment.setComments(countryRiskOverrideVO.getComments());
+		 kycComment.setCreatedDt(new Timestamp(System.currentTimeMillis()));
+		 kycComment.setCreatedBy(countryRiskOverrideVO.getCreateId());
+		 kycComment.setModifiedDt(new Timestamp(System.currentTimeMillis()));
+		 kycComment.setModifiedBy(countryRiskOverrideVO.getLastUpdatedId());
+		 saveObject(kycComment);
+		 logger.info("Exits the class CountryRiskOverrideDaoImpl---> method :updateComments");
+	}
+
+	@Override
+	public List<PickListLkupStagingEntity> getCheckerData(List<String> pickListTypeList) {
+		logger.info("Inside the Class: CountryRiskOverrideDaoImpl ---> method: getCheckerData");
+		List<String> statusList = Arrays.asList(AMLCDDConstants.ADD_PENDING,AMLCDDConstants.UPDATE_PENDING,AMLCDDConstants.DELETE_PENDING);
+		List<String> checkerStatusList = Arrays.asList(AMLCDDConstants.ADD_APPROVED, AMLCDDConstants.UPDATE_APPROVED, AMLCDDConstants.DELETE_APPROVED, 
+				AMLCDDConstants.UPDATE_REJECTED, AMLCDDConstants.ADD_REJECTED, AMLCDDConstants.DELETE_REJECTED);
+		String hql2 = "select p1.pickListId, p1.pickListType,p1.pickListCode,p1.pickListValue,p1.parentPickListId,p1.authStatus,p1.createdBy,p1.createdDt,p1.modifiedBy, p1.modifiedDt from PickListLkupStagingEntity as p1 where p1.pickListType in(:pickListType) and p1.authStatus IN(:authStatusList) and p1.pickListId not in (select p2.parentPickListId from PickListLkupStagingEntity p2 where p2.pickListType in(:pickListType) and p2.authStatus in(:checkerStatusList) )";
+		Query query1  = getSession().createQuery(hql2);
+		query1.setParameterList("pickListType", pickListTypeList);
+		query1.setParameterList("authStatusList", statusList);
+		query1.setParameterList("checkerStatusList", checkerStatusList);
+		List<Object> childList = query1.list();
+		List<PickListLkupStagingEntity> parentChildList = new ArrayList();
+		for(Object obj :childList)
+		{ 
+			PickListLkupStagingEntity pickListLkupStagingEntity = new PickListLkupStagingEntity();
+		     Object [] array = (Object[]) obj;
+		  if(null != array && array.length >5){
+				pickListLkupStagingEntity.setPickListId((Long)array[0]);
+				pickListLkupStagingEntity.setPickListType((String)array[1]);
+				pickListLkupStagingEntity.setPickListCode((String)array[2]);
+				pickListLkupStagingEntity.setPickListvalue((String)array[3]);
+				pickListLkupStagingEntity.setParentPickListId((Long)array[4]);
+				pickListLkupStagingEntity.setAuthStatus((String)array[5]);
+				pickListLkupStagingEntity.setCreatedBy((String)array[6]);
+				pickListLkupStagingEntity.setCreatedDt((Date)array[7]);
+				pickListLkupStagingEntity.setModifiedBy((String)array[8]);
+				pickListLkupStagingEntity.setModifiedDt((Date)array[9]);
+		  }
+		parentChildList.add(pickListLkupStagingEntity);
+	}
+		logger.info("Exits the class CountryRiskOverrideDaoImpl---> method :getCheckerData");
+		return parentChildList;
+	}
+
+
+	/* (non-Javadoc)
+	 * @see com.citigroup.amlcdd.risk.country.dao.ICountryRiskOverrideDao#checkerUpdate(java.util.List)
+	 */
+	@Override
+	public List<PickListLkupEntity> updateChecker(List<PickListLkupEntity> lstPickListLkupEntity) {
+		logger.info("Inside the Class: CountryRiskOverrideDaoImpl ---> method: updateChecker");
+		String stringQuery = null;
+		String pickListType = null;
+		String pickListCode = null;
+		String pickListValue = null;
+		Date modifiedDt = null;
+		String modifiedBy = null;
+		String riskrating = null;
+		String pickListId = getSequenceNo(AMLCDDConstants.PICKLIST);
+		List<PickListLkupEntity> pickListLkupEntityLst = new ArrayList<>();
+		List<String> lstParentPickList = Arrays.asList(AMLCDDConstants.PBOC_RISK_SCORE_MODE_OF_ACCT_CARD, AMLCDDConstants.PBOC_RISK_SCORE_IND_ID_TYPE, AMLCDDConstants.PBOC_RISK_SCORE_AGE_RETAIL, AMLCDDConstants.PBOC_RISK_SCORE_AGE_CARD, AMLCDDConstants.PBOC_RISK_SCORE_AGE_UPL);
+		List<String> parentPickList = Arrays.asList(AMLCDDConstants.PBOC_RISK_SCORE_AGE_RETAIL, AMLCDDConstants.PBOC_RISK_SCORE_AGE_CARD, AMLCDDConstants.PBOC_RISK_SCORE_AGE_UPL);
+		 List<String> childAgePickListTypeList = Arrays.asList(AMLCDDConstants.PBOC_RISK_SCORE_AGE_RETAIL_PARAMS, AMLCDDConstants.PBOC_RISK_SCORE_AGE_CARD_PARAMS, AMLCDDConstants.PBOC_RISK_SCORE_AGE_UPL_PARAMS);
+		for(PickListLkupEntity pickListLkupEntity : lstPickListLkupEntity)
+		{
+			//For checker update/delete operations
+			if(!(pickListLkupEntity.getAuthStatus()).equals(AMLCDDConstants.ADD_APPROVED)){
+				// Parents Records
+			//	if(lstParentPickList.contains(pickListLkupEntity.getPickListType()))
+			//	{
+					pickListType= (pickListLkupEntity.getPickListType()).trim();
+					pickListCode = (pickListLkupEntity.getPickListCode()).trim();
+					pickListValue = (pickListLkupEntity.getPickListvalue()).trim();
+					modifiedDt = new Timestamp(System.currentTimeMillis());
+					modifiedBy = pickListLkupEntity.getModifiedBy();
+					riskrating = pickListLkupEntity.getRiskrating();
+					
+					stringQuery =	"select count(*) from PickListLkupEntity where pickListType =:pickListType and pickListCode =:pickListCode and authStatus =:authStatus";
+					Query query  = getSession().createQuery(stringQuery);
+					query.setParameter("pickListType", pickListType);
+					query.setParameter("pickListCode", pickListCode);
+					query.setParameter("authStatus", AMLCDDConstants.APPROVED);
+					Long count = (Long)query.uniqueResult();
+					if(count == 1){
+						if((pickListLkupEntity.getAuthStatus()).equals(AMLCDDConstants.UPDATE_APPROVED))
+						{
+							Query query1  = getSession().createQuery("update PickListLkupEntity set pickListValue =:pickListValue, modifiedBy =:modifiedBy, modifiedDt =:modifiedDt, riskrating =:riskrating where pickListType =:pickListType and pickListCode =:pickListCode and authStatus =:authStatus");
+							query1.setParameter("pickListType", pickListType);
+							query1.setParameter("pickListCode", pickListCode);
+							query1.setParameter("pickListValue", pickListValue);
+							query1.setParameter("modifiedDt", modifiedDt);
+							query1.setParameter("modifiedBy", modifiedBy);
+							query1.setParameter("riskrating", riskrating);
+							query1.setParameter("authStatus", AMLCDDConstants.APPROVED);
+							query1.executeUpdate();
+							if((parentPickList.contains(pickListLkupEntity.getPickListType()))){
+							Query query2  = getSession().createQuery("update PickListLkupEntity set modifiedBy =:modifiedBy, modifiedDt =:modifiedDt where parentPickListId IN(select b.pickListId from PickListLkupEntity as b where b.pickListType =:pickListType and b.pickListCode =:pickListCode and b.authStatus =:authStatus)");
+							query2.setParameter("pickListType", pickListType);
+							query2.setParameter("pickListCode", pickListCode);
+							query2.setParameter("modifiedDt", modifiedDt);
+							query2.setParameter("modifiedBy", modifiedBy);
+							query2.setParameter("authStatus", AMLCDDConstants.APPROVED);
+							query2.executeUpdate();
+							}
+						}
+						else if((pickListLkupEntity.getAuthStatus()).equals(AMLCDDConstants.DELETE_APPROVED))
+						{
+						
+							Query query1  = getSession().createQuery("update PickListLkupEntity set authStatus =:deleteFlg, modifiedDt =:modifiedDt, modifiedBy =:modifiedBy, pickListValue =:pickListValue where pickListType =:pickListType and pickListCode =:pickListCode");
+							query1.setParameter("deleteFlg", AMLCDDConstants.INACTIVE);
+							query1.setParameter("modifiedDt", modifiedDt);
+							query1.setParameter("pickListType", pickListType);
+							query1.setParameter("pickListCode", pickListCode);
+							query1.setParameter("pickListValue", pickListValue);
+							query1.setParameter("modifiedBy", modifiedBy);
+							query1.executeUpdate();
+							if((parentPickList.contains(pickListLkupEntity.getPickListType()))){
+							Query query2  = getSession().createQuery("update PickListLkupEntity set authStatus =:deleteFlg, modifiedDt =:modifiedDt, modifiedBy =:modifiedBy where parentPickListId IN(select b.pickListId from PickListLkupEntity as b where b.pickListType =:pickListType and b.pickListCode =:pickListCode)");
+							query2.setParameter("deleteFlg", AMLCDDConstants.INACTIVE);
+							query2.setParameter("modifiedDt", modifiedDt);
+							query2.setParameter("pickListType", pickListType);
+							query2.setParameter("pickListCode", pickListCode);
+							query2.setParameter("modifiedBy", modifiedBy);
+							query2.executeUpdate();
+							}
+							pickListLkupEntity.setAuthStatus(AMLCDDConstants.INACTIVE);
+							
+						}
+					}
+			}
+			//For Add Operations
+			else{
+				Long id =null;
+				if(pickListId != "")
+				id = Long.valueOf(pickListId);
+				if((pickListLkupEntity.getAuthStatus()).equals(AMLCDDConstants.ADD_APPROVED))
+					pickListLkupEntity.setAuthStatus(AMLCDDConstants.APPROVED);
+				if(parentPickList.contains(pickListLkupEntity.getPickListType())){
+					pickListLkupEntity.setPickListId(id);
+				}
+				else{
+					pickListLkupEntity.setPickListId(Long.valueOf(getSequenceNo(AMLCDDConstants.PICKLIST)));
+					if(childAgePickListTypeList.contains(pickListLkupEntity.getPickListType())){
+					 pickListLkupEntity.setParentPickListId(id);
+					}
+				}
+				if(lstParentPickList.contains(pickListLkupEntity.getPickListType()))
+					pickListLkupEntity.setParentPickListId(null);
+				getSession().save(pickListLkupEntity);
+			
+			}
+			pickListLkupEntityLst.add(pickListLkupEntity);
+		}
+		logger.info("Exits the Class: CountryRiskOverrideDaoImpl ---> method: updateChecker");
+		return pickListLkupEntityLst;
+	}
+
+	/* (non-Javadoc)
+	 * @see com.citigroup.amlcdd.risk.country.dao.ICountryRiskOverrideDao#getParentRecordsCount(java.lang.String)
+	 */
+	@Override
+	public Long getParentRecordsCount(String pickListType) {
+		logger.info("Inside the Class: CountryRiskOverrideDaoImpl ---> method: getParentRecordsCount");
+		Query query  = getSession().createQuery("select count(*) from PickListLkupEntity where pickListType =:pickListType");
+        query.setParameter("pickListType", pickListType);
+        Long count = (Long)query.uniqueResult();
+        Query query1  = getSession().createQuery("select count(*) from PickListLkupStagingEntity where pickListType =:pickListType and authStatus in :authStatus");
+        query1.setParameter("pickListType", pickListType);
+        query1.setParameterList("authStatus", Arrays.asList("ADD_PENDING",  "DELETE_APPROVED"));
+        Long count1 = (Long)query1.uniqueResult();
+        Query query2  = getSession().createQuery("select count(*) from PickListLkupStagingEntity where pickListType =:pickListType and authStatus =:authStatus");
+        query2.setParameter("pickListType", pickListType);
+        query2.setParameter("authStatus", "ADD_APPROVED");
+        Long count3 = (Long)query2.uniqueResult();
+        logger.info("Exits the Class: CountryRiskOverrideDaoImpl ---> method: getParentRecordsCount");
+        return ((count+count1)-count3);
+	}
+	
+	
+	
+	/* (non-Javadoc)
+	 * @see com.citigroup.amlcdd.risk.country.dao.ICountryRiskOverrideDao#getInitialModifiedMakerData()
+	 */
+	@Override
+	public List<PickListLkupStagingEntity> getInitialModifiedMakerData() {
+		logger.info("Inside the Class: CountryRiskOverrideDaoImpl ---> method: getInitialModifiedMakerData");
+
+		List<String> lstChildPickList = Arrays.asList(AMLCDDConstants.PBOC_RISK_SCORE_AGE_CARD_PARAMS, AMLCDDConstants.PBOC_RISK_SCORE_AGE_RETAIL_PARAMS, AMLCDDConstants.PBOC_RISK_SCORE_AGE_UPL_PARAMS);
+		List<String> lstParentPickList = Arrays.asList(AMLCDDConstants.PBOC_RISK_SCORE_MODE_OF_ACCT_CARD, AMLCDDConstants.PBOC_RISK_SCORE_IND_ID_TYPE, AMLCDDConstants.PBOC_RISK_SCORE_AGE_RETAIL, AMLCDDConstants.PBOC_RISK_SCORE_AGE_CARD, AMLCDDConstants.PBOC_RISK_SCORE_AGE_UPL);
+		List<Long> parentPickListIdList = new ArrayList<>();
+		List<PickListLkupStagingEntity> childList =new ArrayList<>();
+		String hql = "from PickListLkupStagingEntity as a where a.pickListType IN(:lstParentPickList) and a.modifiedDt IN(select max(modifiedDt) from PickListLkupStagingEntity as b where a.pickListType = b.pickListType and a.pickListCode = b.pickListCode)";
+		Query query  = getSession().createQuery(hql);
+		query.setParameterList("lstParentPickList", lstParentPickList);
+		List<PickListLkupStagingEntity> parentList = query.list();
+		
+		for(PickListLkupStagingEntity pickListLkupStagingEntity :parentList){
+			parentPickListIdList.add(pickListLkupStagingEntity.getPickListId());
+		}
+		if(parentPickListIdList.size() != 0){
+		String hql1 = "from PickListLkupStagingEntity where pickListType IN(:lstChildPickList) and parentPickListId IN(:parentPickListIdList)";
+		Query query1  = getSession().createQuery(hql1);
+		query1.setParameterList("lstChildPickList", lstChildPickList);
+		query1.setParameterList("parentPickListIdList", parentPickListIdList);
+		childList = query1.list();
+		}
+		
+		parentList.addAll(childList);
+ logger.info("Exits the class CountryRiskOverrideDaoImpl---> method :getInitialModifiedMakerData");
+return parentList;
+		
+	}
+
+	/* (non-Javadoc)
+	 * @see com.citigroup.amlcdd.risk.country.dao.ICountryRiskOverrideDao#getUpdatedRecord(java.util.List)
+	 */
+	@Override
+	public List<PickListLkupStagingEntity> getUpdatedRecord(List<PickListLkupStagingEntity> pickListLkupStgEntityList) {
+		logger.info("Inside the Class: CountryRiskOverrideDaoImpl ---> method: getUpdatedRecord");
+		List<String> lstAgeParentPickList = Arrays.asList(AMLCDDConstants.PBOC_RISK_SCORE_AGE_RETAIL, AMLCDDConstants.PBOC_RISK_SCORE_AGE_CARD, AMLCDDConstants.PBOC_RISK_SCORE_AGE_UPL);
+		List<String> pickListTypeList = new ArrayList<>();
+		List<String> pickListCodeList = new ArrayList<>();
+		List<String> parentPickListCodeList = new ArrayList<>();
+		List<PickListLkupStagingEntity> resultList = new ArrayList<>();
+		for(PickListLkupStagingEntity pickListLkupStagingEntity :pickListLkupStgEntityList){
+			pickListCodeList.add(pickListLkupStagingEntity.getPickListCode());
+			pickListTypeList.add(pickListLkupStagingEntity.getPickListType());
+			if(lstAgeParentPickList.contains(pickListLkupStagingEntity.getPickListType())){
+				if(AMLCDDConstants.PBOC_RISK_SCORE_AGE_RETAIL.equals(pickListLkupStagingEntity.getPickListType()) && AMLCDDConstants.ADD_PENDING.equals(pickListLkupStagingEntity.getAuthStatus())){
+					String[] splitCode = pickListLkupStagingEntity.getPickListCode().split("(?<=RISK_SCORE_AGE_RETAIL)");
+					Long countValue = Long.parseLong(splitCode[1])-1;
+					pickListLkupStagingEntity.setPickListCode(splitCode[0] + countValue);
+					parentPickListCodeList.add(pickListLkupStagingEntity.getPickListCode());
+				}
+				else if(AMLCDDConstants.PBOC_RISK_SCORE_AGE_CARD.equals(pickListLkupStagingEntity.getPickListType()) && AMLCDDConstants.ADD_PENDING.equals(pickListLkupStagingEntity.getAuthStatus())){
+					String[] splitCode = pickListLkupStagingEntity.getPickListCode().split("(?<=RISK_SCORE_AGE_CARD)");
+					Long countValue = Long.parseLong(splitCode[1])-1;
+					pickListLkupStagingEntity.setPickListCode(splitCode[0] + countValue);
+					parentPickListCodeList.add(pickListLkupStagingEntity.getPickListCode());
+				}
+				else if(AMLCDDConstants.PBOC_RISK_SCORE_AGE_UPL.equals(pickListLkupStagingEntity.getPickListType()) && AMLCDDConstants.ADD_PENDING.equals(pickListLkupStagingEntity.getAuthStatus())){
+					String[] splitCode = pickListLkupStagingEntity.getPickListCode().split("(?<=RISK_SCORE_AGE_UPL)");
+					Long countValue = Long.parseLong(splitCode[1])-1;
+					pickListLkupStagingEntity.setPickListCode(splitCode[0] + countValue);
+					parentPickListCodeList.add(pickListLkupStagingEntity.getPickListCode());
+				}
+				else
+				parentPickListCodeList.add(pickListLkupStagingEntity.getPickListCode());
+			}
+		}
+		if(parentPickListCodeList.size() !=0 )
+		{
+			String hql1 = "from PickListLkupStagingEntity as a where a.pickListType IN(:pickListTypeList) and a.pickListCode IN(:pickListCodeList) and a.modifiedDt IN(select max(modifiedDt) from PickListLkupStagingEntity as b where a.pickListType = b.pickListType and a.pickListCode = b.pickListCode)";
+			Query query1  = getSession().createQuery(hql1);
+			query1.setParameterList("pickListTypeList", pickListTypeList);
+			query1.setParameterList("pickListCodeList", parentPickListCodeList);
+			resultList = query1.list();
+		}
+		else
+		{
+			String hql = "from PickListLkupStagingEntity as a where a.pickListType IN(:pickListTypeList) and a.pickListCode IN(:pickListCodeList) and a.modifiedDt IN(select max(modifiedDt) from PickListLkupStagingEntity as b where a.pickListType = b.pickListType and a.pickListCode = b.pickListCode)";
+			Query query  = getSession().createQuery(hql);
+			query.setParameterList("pickListTypeList", pickListTypeList);
+			query.setParameterList("pickListCodeList", pickListCodeList);
+			resultList = query.list();
+		}
+		logger.info("Exits the Class: CountryRiskOverrideDaoImpl ---> method: getUpdatedRecord");
+		return resultList;
+	}
+	
+	/* (non-Javadoc)
+	 * @see com.citigroup.amlcdd.risk.country.dao.ICountryRiskOverrideDao#getInitMakerRiskScoreData()
+	 */
+	public List<PickListLkupEntity> getInitMakerRiskScoreData() {
+		logger.info("Inside the Class: CountryRiskOverrideDaoImpl ---> method: getInitMakerRiskScoreData");
+		List<String> pickListTypeList = Arrays.asList(AMLCDDConstants.PBOC_RISK_SCORE_MODE_OF_ACCT_CARD, AMLCDDConstants.PBOC_RISK_SCORE_IND_ID_TYPE, AMLCDDConstants.PBOC_RISK_SCORE_AGE_RETAIL, AMLCDDConstants.PBOC_RISK_SCORE_AGE_CARD, AMLCDDConstants.PBOC_RISK_SCORE_AGE_UPL);
+		List<PickListLkupEntity> listPickListLkupEntity = null;
+		String hql1 = "from PickListLkupEntity where pickListType IN(:pickListTypeList) and authStatus =:authStatus";
+		Query query1  = getSession().createQuery(hql1);
+		query1.setParameterList("pickListTypeList", pickListTypeList);
+		 query1.setParameter("authStatus", AMLCDDConstants.APPROVED);
+		listPickListLkupEntity = query1.list();
+		logger.info("Exits the Class: CountryRiskOverrideDaoImpl ---> method: getInitMakerRiskScoreData");
+		return listPickListLkupEntity;
+	}
+
+	/* (non-Javadoc)
+	 * @see com.citigroup.amlcdd.risk.country.dao.ICountryRiskOverrideDao#validatePickListCode()
+	 */
+	@Override
+	public List<PickListLkupStagingEntity> getValidatePickListCode(PickListLkupStagingEntity pickListLkupStagingEntity) {
+		logger.info("Inside the Class: CountryRiskOverrideDaoImpl ---> method: validatePickListCode");
+		List<String> lstChildPickList = Arrays.asList(AMLCDDConstants.PBOC_RISK_SCORE_AGE_CARD_PARAMS, AMLCDDConstants.PBOC_RISK_SCORE_AGE_RETAIL_PARAMS, AMLCDDConstants.PBOC_RISK_SCORE_AGE_UPL_PARAMS);
+		List<PickListLkupStagingEntity> resultList = new ArrayList<>();
+		String pickListType = pickListLkupStagingEntity.getPickListType();
+		List<String> pickListTypeList = null;
+		if(AMLCDDConstants.PBOC_RISK_SCORE_AGE_RETAIL_PARAMS.equals(pickListType))
+			pickListTypeList = Arrays.asList(AMLCDDConstants.PBOC_RISK_SCORE_AGE_RETAIL_PARAMS, AMLCDDConstants.PBOC_RISK_SCORE_AGE_RETAIL);
+		else if(AMLCDDConstants.PBOC_RISK_SCORE_AGE_CARD_PARAMS.equals(pickListType))
+			pickListTypeList = Arrays.asList(AMLCDDConstants.PBOC_RISK_SCORE_AGE_CARD_PARAMS, AMLCDDConstants.PBOC_RISK_SCORE_AGE_CARD);
+		else if(AMLCDDConstants.PBOC_RISK_SCORE_AGE_UPL_PARAMS.equals(pickListType))
+			pickListTypeList = Arrays.asList(AMLCDDConstants.PBOC_RISK_SCORE_AGE_UPL_PARAMS, AMLCDDConstants.PBOC_RISK_SCORE_AGE_UPL);
+		if(lstChildPickList.contains(pickListType)){
+		String hql = "from PickListLkupStagingEntity where pickListType IN(:pickListTypeList) and authStatus =:authStatus";
+		Query query  = getSession().createQuery(hql);
+		query.setParameterList("pickListTypeList", pickListTypeList);
+		query.setParameter("authStatus", AMLCDDConstants.ADD_PENDING);
+		resultList = query.list();
+		}
+		else{
+			String hql = "from PickListLkupStagingEntity where pickListType =:pickListType and authStatus =:authStatus";
+			Query query  = getSession().createQuery(hql);
+			query.setParameter("pickListType", pickListType);
+			query.setParameter("authStatus", AMLCDDConstants.ADD_PENDING);
+			resultList = query.list();
+		}
+		logger.info("Exits the Class: CountryRiskOverrideDaoImpl ---> method: validatePickListCode");
+		return resultList;
+		
+	}
+	
+	/**
+	 * Method Name: getUserNameById
+	 * Description: Method to perform <Details>
+	 * @return String
+	 * @param 
+	 * 
+	 */
+	@Override
+	public Map<String, String> getAllUsers() {
+		logger.info("Inside the class CountryRiskOverrideDaoImpl---> method : getUserNameById");
+		Map<String, String> userMap = new HashMap<>();
+		Query query = getSession().createQuery("from UserEntity");
+		List<UserEntity> userlist = query.list();
+		if(userlist.size() > 0){
+			for(UserEntity userEntity :userlist){
+				userMap.put(userEntity.getUserId(), userEntity.getName());
+			}
+		}
+		logger.info("Exits the class CountryRiskOverrideDaoImpl---> method : getUserNameById");
+		return userMap;
+	}
+	
+	@Override
+	public List<String> getKYCCommentComponentIds(String sectionName) {
+		String queryStr = "select componentId from KycCommentsEntity where sectionNm =:sectionNm and componentId IN(select componentId from KycCommentsEntity group by componentId having count(*)=1)";
+		Query query = getSession().createQuery(queryStr);
+		query.setParameter("sectionNm", sectionName);
+		List<String> componentIdlist = query.list();
+		return componentIdlist;
+	}
+	
+	@Override
+	public Map<String, String> getKYCComments(List<String> pickListIdLst, String sectionName, List<String> modifiedByLst) {
+		Map<String, String> commentsMap = new HashMap<>();
+		String queryStr = "from KycCommentsEntity where sectionNm =:sectionNm and modifiedBy IN(:modifiedByLst) and componentId IN(:componentIdLst)";
+		Query query = getSession().createQuery(queryStr);
+		query.setParameter("sectionNm", sectionName);
+		query.setParameterList("componentIdLst", pickListIdLst);
+		query.setParameterList("modifiedByLst", modifiedByLst);
+		List<KycCommentsEntity> commentList = query.list();
+		if(commentList.size() > 0){
+			for(KycCommentsEntity kycCommentsEntity :commentList){
+				commentsMap.put(kycCommentsEntity.getComponentId(), kycCommentsEntity.getComments());
+			}
+		}
+		
+		return commentsMap;
+	}
+	
+	
+	
+	@Override
+	public List<PickListLkupEntity> getPickListLkupCacheData(List<PickListLkupEntity> lstPickListLkupEntity){
+		logger.info("Inside the Class: CountryRiskOverrideDaoImpl ---> method: getPickListLkupCacheData");
+		String stringQuery = null;
+		String pickListType = null;
+		String pickListCode = null;
+		String pickListValue = null;
+		Date modifiedDt = null;
+		String modifiedBy = null;
+		List<PickListLkupEntity> pickListLkupEntyLst = new ArrayList<>();
+		String pickListId = getSequenceNo(AMLCDDConstants.PICKLIST);
+		List<PickListLkupEntity> pickListLkupEntityLst = new ArrayList<>();
+		List<String> lstParentPickList = Arrays.asList(AMLCDDConstants.PBOC_RISK_SCORE_MODE_OF_ACCT_CARD, AMLCDDConstants.PBOC_RISK_SCORE_IND_ID_TYPE, AMLCDDConstants.PBOC_RISK_SCORE_AGE_RETAIL, AMLCDDConstants.PBOC_RISK_SCORE_AGE_CARD, AMLCDDConstants.PBOC_RISK_SCORE_AGE_UPL);
+		for(PickListLkupEntity pickListLkupEntity : lstPickListLkupEntity)
+		{
+			//For checker update/delete operations
+			if(!(pickListLkupEntity.getAuthStatus()).equals(AMLCDDConstants.APPROVED)){
+				// Parents Records
+				if(lstParentPickList.contains(pickListLkupEntity.getPickListType()))
+				{
+					pickListType= (pickListLkupEntity.getPickListType()).trim();
+					pickListCode = (pickListLkupEntity.getPickListCode()).trim();
+					pickListValue = (pickListLkupEntity.getPickListvalue()).trim();
+					modifiedDt = new Timestamp(System.currentTimeMillis());
+					modifiedBy = pickListLkupEntity.getModifiedBy();
+					stringQuery =	"select count(*) from PickListLkupEntity where pickListType =:pickListType and pickListCode =:pickListCode and authStatus =:authStatus";
+					Query query  = getSession().createQuery(stringQuery);
+					query.setParameter("pickListType", pickListType);
+					query.setParameter("pickListCode", pickListCode);
+					query.setParameter("authStatus", AMLCDDConstants.APPROVED);
+					Long count = (Long)query.uniqueResult();
+					if(count == 1){
+						if((pickListLkupEntity.getAuthStatus()).equals(AMLCDDConstants.UPDATE_APPROVED))
+						{
+							Query query2  = getSession().createQuery("from PickListLkupEntity where pickListType =:pickListType and pickListCode =:pickListCode and authStatus =:authStatus");
+							query2.setParameter("pickListType", pickListType);
+							query2.setParameter("pickListCode", pickListCode);
+							query2.setParameter("authStatus", AMLCDDConstants.APPROVED);
+							pickListLkupEntyLst = query2.list();
+							for(PickListLkupEntity pickListLkupEnty :pickListLkupEntyLst){
+								pickListLkupEntity.setCreatedDt(pickListLkupEnty.getCreatedDt());
+								pickListLkupEntity.setModifiedDt(pickListLkupEnty.getModifiedDt());
+							}
+						}
+						else if((pickListLkupEntity.getAuthStatus()).equals(AMLCDDConstants.INACTIVE))
+						{
+							if((lstParentPickList.contains(pickListLkupEntity.getPickListType()))){
+							Query resultQuery  = getSession().createQuery("from PickListLkupEntity where pickListType =:pickListType and pickListCode =:pickListCode");
+							resultQuery.setParameter("pickListType", pickListType);
+							resultQuery.setParameter("pickListCode", pickListCode);
+							pickListLkupEntyLst = resultQuery.list();
+							for(PickListLkupEntity pickListLkupEnty :pickListLkupEntyLst){
+								pickListLkupEntity.setCreatedDt(pickListLkupEnty.getCreatedDt());
+								pickListLkupEntity.setModifiedDt(pickListLkupEnty.getModifiedDt());
+							}
+							}
+							else{
+							
+							Query query3  = getSession().createQuery("from PickListLkupEntity where parentPickListId IN(select pickListId from PickListLkupEntity where pickListType =:pickListType and pickListCode =:pickListCode)");
+							query3.setParameter("pickListType", pickListType);
+							query3.setParameter("pickListCode", pickListCode);
+							pickListLkupEntyLst = query3.list();
+							for(PickListLkupEntity pickListLkupEnty :pickListLkupEntyLst){
+								pickListLkupEntity.setCreatedDt(pickListLkupEnty.getCreatedDt());
+								pickListLkupEntity.setModifiedDt(pickListLkupEnty.getModifiedDt());
+							}
+							}
+							pickListLkupEntity.setAuthStatus(AMLCDDConstants.INACTIVE);
+							
+						}
+					}
+				}
+			}
+			//For Add Operations
+			else{
+				if(lstParentPickList.contains(pickListLkupEntity.getPickListType())){
+				Query resultQuery  = getSession().createQuery("from PickListLkupEntity where pickListType =:pickListType and pickListCode =:pickListCode");
+				resultQuery.setParameter("pickListType", pickListLkupEntity.getPickListType());
+				resultQuery.setParameter("pickListCode", pickListLkupEntity.getPickListCode());
+				pickListLkupEntyLst = resultQuery.list();
+				}
+				for(PickListLkupEntity pickListLkupEnty :pickListLkupEntyLst){
+					pickListLkupEntity.setCreatedDt(pickListLkupEnty.getCreatedDt());
+					pickListLkupEntity.setModifiedDt(pickListLkupEnty.getModifiedDt());
+				}
+			}
+			pickListLkupEntityLst.add(pickListLkupEntity);
+		
+		}
+		logger.info("Exits the Class: CountryRiskOverrideDaoImpl ---> method: getPickListLkupCacheData");
+		return lstPickListLkupEntity;
+	}
+	
+	@Override
+	public List<PickListLkupEntity> getOnLoadPickListLkupData(List<String> pickListTypes){
+		logger.info("Inside the Class: CountryRiskOverrideDaoImpl ---> method: getOnLoadPickListLkupData");
+		Query resultQuery  = getSession().createQuery("from PickListLkupEntity where pickListType IN(:pickListTypes)");
+		resultQuery.setParameterList("pickListTypes", pickListTypes);
+		logger.info("Exits the Class: CountryRiskOverrideDaoImpl ---> method: getOnLoadPickListLkupData");
+		return  resultQuery.list();
+		
+	}
+	
+
+	@Override
+	public String getParameterAssigneeName(String pickListId){
+		String resultAssignee="";
+		Query resultQuery  = getSession().createSQLQuery(GET_PARAM_ASSIGNE_NAME);
+		resultQuery.setParameter("paramId", pickListId);
+		@SuppressWarnings("unchecked")
+		List<String> result=resultQuery.list();
+		if(result!=null && result.size() >0){
+			for(String name:result){
+				resultAssignee=name;
+			}
+		}
+		return resultAssignee;
+	}
+	
+}
